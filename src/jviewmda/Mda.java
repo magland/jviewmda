@@ -85,15 +85,19 @@ public class Mda {
 	}
 
 	public int size(int dim) {
-		int dim2 = dim - 1;
-		if (dim2 >= MAX_DIMS) {
+		if (dim >= MAX_DIMS) {
 			return 0;
 		}
-		if (dim2 < 0) {
+		if (dim < 0) {
 			return 0;
 		}
-		return m_size[dim2];
+		return m_size[dim];
 	}
+	public int N1() {return m_size[0];};
+	public int N2() {return m_size[1];};
+	public int N3() {return m_size[2];};
+	public int N4() {return m_size[3];};
+	public int N5() {return m_size[4];};
 
 	public int dimCount() {
 		int ret = 2;
@@ -160,6 +164,8 @@ public class Mda {
 		int ret = 0;
 		int prod = 1;
 		for (int i = 0; i < ind.length; i++) {
+			if (ind[i]>=m_size[i]) return 0;
+			if (ind[i]<0) return 0;
 			ret += ind[i] * prod;
 			if (i < m_size.length) {
 				prod *= m_size[i];
