@@ -1,5 +1,8 @@
 package jviewmda;
 
+import static java.lang.Integer.max;
+import static java.lang.Integer.min;
+import static java.lang.Math.abs;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.event.ActionEvent;
@@ -13,6 +16,7 @@ import javafx.scene.image.PixelWriter;
 import javafx.scene.image.WritableImage;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
+import javafx.scene.input.MouseDragEvent;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
@@ -28,6 +32,7 @@ public class MdaView2D extends StackPane {
 	private ExpandingCanvas m_cursor_canvas;
 	private Mda m_array;
 	int[] m_current_index=new int[2];
+	int[] m_selected_rect=new int[4];
 	double m_scale_x=1;
 	double m_scale_y=1;
 	int m_offset_x=0;
@@ -48,9 +53,15 @@ public class MdaView2D extends StackPane {
 		m_current_index[0]=ind[0];
 		m_current_index[1]=ind[1];
 		refresh_cursor();
-		CH.trigger("current-index-changed");
+		CH.scheduleTrigger("current-index-changed",100);
+	}
+	public void setSelectedRect(int[] rr) {
+		m_selected_rect=rr.clone();
+		refresh_cursor();
+		CH.scheduleTrigger("selected-rect-changed",500);
 	}
 	public void onCurrentIndexChanged(EventHandler<ActionEvent> handler) {CH.bind("current-index-changed", handler);}
+	public void onSelectedRectChanged(EventHandler<ActionEvent> handler) {CH.bind("selected_rect-changed", handler);}
 	public int[] currentIndex() {
 		return m_current_index.clone();
 	}
@@ -62,6 +73,7 @@ public class MdaView2D extends StackPane {
 	
 	public MdaView2D() {
 		m_current_index[0]=-1; m_current_index[1]=-1;
+		m_selected_rect[0]=-1; m_selected_rect[1]=-1; m_selected_rect[2]=-1; m_selected_rect[3]=-1;
 		m_image_canvas=new ExpandingCanvas();
 		m_cursor_canvas=new ExpandingCanvas();
 		getChildren().add(m_image_canvas);
@@ -69,7 +81,8 @@ public class MdaView2D extends StackPane {
 		m_image_canvas.setOnRefresh(evt->schedule_refresh_image());
 		m_cursor_canvas.setOnRefresh(evt->refresh_cursor());
 		
-		this.setOnMousePressed(evt->{on_mouse_pressed(evt.getX(),evt.getY());});
+		this.setOnMousePressed(evt->{on_mouse_pressed(evt,evt.getX(),evt.getY());});
+		this.setOnMouseDragged(evt->{on_mouse_dragged(evt,evt.getX(),evt.getY());});
 		this.setOnKeyPressed(evt->on_key_pressed(evt));
 	}
 	boolean m_refresh_image_scheduled=false;
@@ -153,23 +166,53 @@ public class MdaView2D extends StackPane {
 	private void refresh_cursor() {
 		GraphicsContext gc=m_cursor_canvas.getGraphicsContext2D();
 		gc.clearRect(0,0,getWidth(),getHeight());
+		gc.setStroke(Color.RED);
+		gc.setLineWidth(3);
+		
+		if (m_selected_rect[0]>=0) {
+			int[] ind0=new int[2]; ind0[0]=m_selected_rect[0]; ind0[1]=m_selected_rect[1];
+			int[] ind1=new int[2]; ind1[0]=m_selected_rect[0]+m_selected_rect[2]; ind1[1]=m_selected_rect[1]+m_selected_rect[3];
+			int[] pix0=index2pixel(ind0[0],ind0[1]);
+			int[] pix1=index2pixel(ind1[0],ind1[1]);
+			gc.strokeLine(pix0[0],pix0[1],pix1[0],pix0[1]);
+			gc.strokeLine(pix1[0],pix0[1],pix1[0],pix1[1]);
+			gc.strokeLine(pix1[0],pix1[1],pix0[0],pix1[1]);
+			gc.strokeLine(pix0[0],pix1[1],pix0[0],pix0[1]);
+			return;
+		}
 		
 		if (m_current_index[0]<0) return;
 		if (m_current_index[1]<0) return;
 		
 		int[] pix=index2pixel(m_current_index[0],m_current_index[1]);		
-		gc.setStroke(Color.RED);
-		gc.setLineWidth(3);
 		gc.strokeLine(m_offset_x,pix[1],m_offset_x+m_image_width,pix[1]);
 		gc.strokeLine(pix[0],m_offset_y,pix[0],m_offset_y+m_image_height);
 //		gc.setLineWidth(5);
 //		gc.strokeLine(getWidth()-10,getHeight()-10,10,10);
 	}
-	private void on_mouse_pressed(double x,double y) {
+	double[] m_anchor_point=new double[2];
+	private void on_mouse_pressed(MouseEvent evt,double x,double y) {
 		int[] ind=pixel2index((int)x,(int)y);
 		this.setCurrentIndex(ind);
-		refresh_cursor();
 		this.requestFocus();
+		m_anchor_point=new double[2]; m_anchor_point[0]=x; m_anchor_point[1]=y;
+		int[] rr=new int[4];
+		rr[0]=rr[1]=rr[2]=rr[3]=-1;
+		this.setSelectedRect(rr); //includes refresh_cursor
+	}
+	private void on_mouse_dragged(MouseEvent evt,double x,double y) {
+		if (m_anchor_point[0]>=0) {
+			int[] ind0=pixel2index((int)m_anchor_point[0],(int)m_anchor_point[1]);
+			int[] ind1=pixel2index((int)x,(int)y);
+			if ((abs(ind1[0]-ind0[0])>1)&&(abs(ind1[1]-ind0[1])>1)) {
+				int[] rr=new int[4];
+				rr[0]=min(ind0[0],ind1[0]);
+				rr[1]=min(ind0[1],ind1[1]);
+				rr[2]=max(ind0[0],ind1[0])-min(ind0[0],ind1[0]);
+				rr[3]=max(ind0[1],ind1[1])-min(ind0[1],ind1[1]);
+				setSelectedRect(rr);
+			}
+		}
 	}
 	private void on_key_pressed(KeyEvent evt) {
 		int[] ind=m_current_index.clone();
