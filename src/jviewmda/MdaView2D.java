@@ -2,6 +2,8 @@ package jviewmda;
 
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
+import javafx.event.ActionEvent;
+import javafx.event.Event;
 import javafx.event.EventHandler;
 import javafx.scene.Parent;
 import javafx.scene.canvas.Canvas;
@@ -9,6 +11,8 @@ import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
 import javafx.scene.image.PixelWriter;
 import javafx.scene.image.WritableImage;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
@@ -20,7 +24,6 @@ import javafx.util.Duration;
  * @author magland
  */
 public class MdaView2D extends StackPane {
-	
 	private ExpandingCanvas m_image_canvas;
 	private ExpandingCanvas m_cursor_canvas;
 	private Mda m_array;
@@ -32,23 +35,26 @@ public class MdaView2D extends StackPane {
 	int m_image_width=1;
 	int m_image_height=1;
 	double m_window_min=0;
-	double m_window_max=500;
+	double m_window_max=100;
+	CallbackHandler CH=new CallbackHandler();
 		
 	public void setArray(Mda X) {
 		m_array=X;
-		m_current_index[0]=-1;
-		m_current_index[1]=-1;
-		refresh_image();
+		schedule_refresh_image();
 		refresh_cursor();
 	}
 	public void setCurrentIndex(int[] ind) {
+		if ((m_current_index[0]==ind[0])&&(m_current_index[1]==ind[1])) return;
 		m_current_index[0]=ind[0];
 		m_current_index[1]=ind[1];
+		refresh_cursor();
+		CH.trigger("current-index-changed");
 	}
+	public void onCurrentIndexChanged(EventHandler<ActionEvent> handler) {CH.bind("current-index-changed", handler);}
 	public int[] currentIndex() {
 		return m_current_index.clone();
 	}
-	public void setWindow(double min,double max) {
+	public void setWindowLevels(double min,double max) {
 		m_window_min=min;
 		m_window_max=max;
 		schedule_refresh_image();
@@ -60,13 +66,23 @@ public class MdaView2D extends StackPane {
 		m_cursor_canvas=new ExpandingCanvas();
 		getChildren().add(m_image_canvas);
 		getChildren().add(m_cursor_canvas);
-		m_image_canvas.setOnRefresh(evt->refresh_image());
+		m_image_canvas.setOnRefresh(evt->schedule_refresh_image());
 		m_cursor_canvas.setOnRefresh(evt->refresh_cursor());
 		
 		this.setOnMousePressed(evt->{on_mouse_pressed(evt.getX(),evt.getY());});
-		
+		this.setOnKeyPressed(evt->on_key_pressed(evt));
 	}
-	private void refresh_image() {
+	boolean m_refresh_image_scheduled=false;
+	private void schedule_refresh_image() {
+		if (m_refresh_image_scheduled) return;
+		int dur=100;
+		m_refresh_image_scheduled=true;
+		new Timeline(new KeyFrame(Duration.millis(dur),e -> {
+			m_refresh_image_scheduled=false;
+			do_refresh_image();
+		})).play();
+	}
+	private void do_refresh_image() {
 		GraphicsContext gc=m_image_canvas.getGraphicsContext2D();
 		gc.clearRect(0,0,getWidth(),getHeight());
 		
@@ -107,6 +123,8 @@ public class MdaView2D extends StackPane {
 			W.setColor(x,y,c);
 		}
 		gc.drawImage(img,m_offset_x,m_offset_y);
+		
+		refresh_cursor();
 	}
 	private int[] pixel2index(int x,int y) {
 		int tmp[]=new int[2];
@@ -149,19 +167,31 @@ public class MdaView2D extends StackPane {
 	}
 	private void on_mouse_pressed(double x,double y) {
 		int[] ind=pixel2index((int)x,(int)y);
-		m_current_index=ind;
+		this.setCurrentIndex(ind);
 		refresh_cursor();
+		this.requestFocus();
 	}
-	
-	boolean m_refresh_image_scheduled=false;
-	private void schedule_refresh_image() {
-		if (m_refresh_image_scheduled) return;
-		int dur=500;
-		m_refresh_image_scheduled=true;
-		new Timeline(new KeyFrame(Duration.millis(dur),e -> {
-			m_refresh_image_scheduled=false;
-			refresh_image();
-		})).play();
+	private void on_key_pressed(KeyEvent evt) {
+		int[] ind=m_current_index.clone();
+		KeyCode code=evt.getCode();
+		if (code==KeyCode.UP) {
+			ind[1]--; if (ind[1]<0) ind[1]=0;
+			this.setCurrentIndex(ind);
+		}
+		else if (code==KeyCode.DOWN) {
+			ind[1]++; if (ind[1]>=m_array.N2()) ind[1]=m_array.N2()-1;
+			this.setCurrentIndex(ind);
+		}
+		else if (code==KeyCode.LEFT) {
+			ind[0]--; if (ind[0]<0) ind[0]=0;
+			this.setCurrentIndex(ind);
+		}
+		else if (code==KeyCode.RIGHT) {
+			ind[0]++; if (ind[0]>=m_array.N1()) ind[0]=m_array.N1()-1;
+			this.setCurrentIndex(ind);
+		}
+		else return; //don't consume
+		evt.consume();
 	}
 }
 

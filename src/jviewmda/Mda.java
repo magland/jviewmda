@@ -118,6 +118,9 @@ public class Mda {
 	}
 
 	// value
+	public double value1(int i) {
+		return m_data_real[i];
+	}
 	public double value(int i1, int i2) {
 		final int[] tmp = {i1, i2};
 		return value(tmp);

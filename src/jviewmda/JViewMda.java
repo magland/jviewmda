@@ -13,6 +13,7 @@ import javafx.scene.Scene;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
 import javafx.scene.control.MenuItem;
+import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
@@ -31,6 +32,7 @@ public class JViewMda extends Application {
 	private Preferences m_prefs;
 	private FileChooser m_fc = new FileChooser();
 	private ViewmdaWidget m_widget = new ViewmdaWidget();
+	private String m_file_path;
 
 	@Override
 	public void start(Stage primaryStage) {
@@ -52,7 +54,9 @@ public class JViewMda extends Application {
 		item.setAccelerator(new KeyCodeCombination(KeyCode.S, KeyCombination.CONTROL_DOWN));
 		item.setOnAction(e -> on_file_saveas());
 		menu.getItems().add(item);
+		menu.getItems().add(new SeparatorMenuItem()); /////////////////////////////////////////////
 		item = new MenuItem("Exit");
+		item.setAccelerator(new KeyCodeCombination(KeyCode.X, KeyCombination.CONTROL_DOWN));
 		item.setOnAction(e -> on_file_exit());
 		menu.getItems().add(item);
 
@@ -61,7 +65,7 @@ public class JViewMda extends Application {
 
 		Scene scene = new Scene(root, 300, 250);
 
-		primaryStage.setTitle("Hello World!");
+		primaryStage.setTitle("JViewMda");
 		primaryStage.setScene(scene);
 		primaryStage.show();
 
@@ -83,7 +87,9 @@ public class JViewMda extends Application {
 			System.err.println("Problem reading mda file.");
 			return;
 		}
-
+		
+		m_file_path=path0;
+		update_title();
 		m_widget.setArray(m_array);
 	}
 
@@ -101,10 +107,18 @@ public class JViewMda extends Application {
 			System.err.println("Problem writing mda file.");
 			return;
 		}
+		m_file_path=path0;
+		update_title();
 	}
 
 	private void on_file_exit() {
 		Platform.exit();
+	}
+	
+	private void update_title() {
+		File FF=new File(m_file_path);
+		String str=FF.getName()+": "+FF.getParentFile().getAbsolutePath();
+		m_stage.setTitle(str);
 	}
 
 	/**
