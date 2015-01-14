@@ -6,10 +6,14 @@
 package jviewmda;
 
 import java.io.File;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
 import java.util.prefs.Preferences;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.scene.Scene;
+import javafx.scene.control.CheckMenuItem;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
 import javafx.scene.control.MenuItem;
@@ -33,6 +37,7 @@ public class JViewMda extends Application {
 	private FileChooser m_fc = new FileChooser();
 	private ViewmdaWidget m_widget = new ViewmdaWidget();
 	private String m_file_path;
+	private Map<String, CheckMenuItem> m_selection_mode_items;
 
 	@Override
 	public void start(Stage primaryStage) {
@@ -60,6 +65,36 @@ public class JViewMda extends Application {
 		item.setOnAction(e -> on_file_exit());
 		menu.getItems().add(item);
 
+		//view menu
+		menu = new Menu("View");
+		menubar.getMenus().add(menu);
+		item = new MenuItem("Zoom In");
+		item.setAccelerator(new KeyCodeCombination(KeyCode.Z, KeyCombination.CONTROL_DOWN));
+		item.setOnAction(e -> on_zoom_in());
+		menu.getItems().add(item);
+		item = new MenuItem("Zoom Out");
+		item.setAccelerator(new KeyCodeCombination(KeyCode.Z, KeyCombination.CONTROL_DOWN, KeyCombination.SHIFT_DOWN));
+		item.setOnAction(e -> on_zoom_out());
+		menu.getItems().add(item);
+
+		//selection menu
+		menu = new Menu("Selection");
+		menubar.getMenus().add(menu);
+		Map<String, CheckMenuItem> mode_items = new HashMap<>();
+		m_selection_mode_items = mode_items;
+		mode_items.put("rectangle", new CheckMenuItem("Rectangle"));
+		mode_items.put("ellipse", new CheckMenuItem("Ellipse"));
+		Set<String> keys = mode_items.keySet();
+		for (String key : keys) {
+			CheckMenuItem item0 = mode_items.get(key);
+			menu.getItems().add(item0);
+			item0.setOnAction(evt -> {
+				on_selection_mode_changed(key);
+			});
+
+		}
+		mode_items.get("rectangle").setSelected(true);
+
 		VBox root = new VBox();
 		root.getChildren().addAll(menubar, m_widget);
 
@@ -71,6 +106,16 @@ public class JViewMda extends Application {
 
 		m_prefs = Preferences.userNodeForPackage(this.getClass());
 
+	}
+
+	private void on_selection_mode_changed(String selection_mode) {
+		Set<String> keys = m_selection_mode_items.keySet();
+		for (String key : keys) {
+			if (key != selection_mode) {
+				m_selection_mode_items.get(key).setSelected(false);
+			}
+		}
+		m_widget.setSelectionMode(selection_mode);
 	}
 
 	private void on_file_open() {
@@ -87,8 +132,8 @@ public class JViewMda extends Application {
 			System.err.println("Problem reading mda file.");
 			return;
 		}
-		
-		m_file_path=path0;
+
+		m_file_path = path0;
 		update_title();
 		m_widget.setArray(m_array);
 	}
@@ -107,18 +152,26 @@ public class JViewMda extends Application {
 			System.err.println("Problem writing mda file.");
 			return;
 		}
-		m_file_path=path0;
+		m_file_path = path0;
 		update_title();
 	}
 
 	private void on_file_exit() {
 		Platform.exit();
 	}
-	
+
 	private void update_title() {
-		File FF=new File(m_file_path);
-		String str=FF.getName()+": "+FF.getParentFile().getAbsolutePath();
+		File FF = new File(m_file_path);
+		String str = FF.getName() + ": " + FF.getParentFile().getAbsolutePath();
 		m_stage.setTitle(str);
+	}
+
+	private void on_zoom_in() {
+		m_widget.zoomIn();
+	}
+
+	private void on_zoom_out() {
+		m_widget.zoomOut();
 	}
 
 	/**

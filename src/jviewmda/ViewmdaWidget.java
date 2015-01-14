@@ -1,17 +1,16 @@
 package jviewmda;
 
+import static java.lang.Math.max;
 import java.util.LinkedList;
+import javafx.geometry.Pos;
 import javafx.scene.Group;
-import javafx.scene.canvas.Canvas;
-import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.Scene;
 import javafx.scene.layout.*;
 import javafx.scene.control.ComboBox;
-import javafx.scene.control.Control;
 import javafx.scene.control.Label;
-import javafx.scene.control.ListView;
 import javafx.scene.control.Slider;
-import javafx.scene.control.TextArea;
-import javafx.scene.paint.Color;
+import javafx.scene.text.Font;
+import javafx.scene.text.Text;
 
 /**
  *
@@ -29,6 +28,7 @@ public class ViewmdaWidget extends VBox {
 	private MdaView2D m_view;
 	private Label m_status_label;
 	private Slider m_slice_slider;
+	private double m_stats_mean = 0;
 
 	public void setArray(Mda X) {
 		m_array = X;
@@ -36,9 +36,11 @@ public class ViewmdaWidget extends VBox {
 		m_dim_choices[0] = 1;
 		m_dim_choices[1] = 2;
 		m_dim_choices[2] = 3;
+		update_slice_slider(); //apparently it is important to update the slice slider before and after setting the default current index so that the slice does not get set to zero
 		for (int i = 0; i < Mda.MAX_DIMS; i++) {
 			m_current_index[i] = m_array.size(i) / 2;
 		}
+		update_slice_slider();
 		refresh_dims();
 	}
 
@@ -81,7 +83,13 @@ public class ViewmdaWidget extends VBox {
 		refresh_dims();
 
 		m_view.onCurrentIndexChanged(evt -> on_current_index_changed());
+		m_view.onSelectedRectChanged(evt -> on_selected_rect_changed());
 		m_slice_slider.valueProperty().addListener(ov -> on_slice_slider_changed());
+
+		this.widthProperty().addListener(ov -> {
+			update_status_label_height();
+		});
+		update_status_label_height();
 	}
 
 	public void setCurrentIndex(int[] ind) {
@@ -107,6 +115,33 @@ public class ViewmdaWidget extends VBox {
 
 	public int[] currentIndex() {
 		return m_current_index.clone();
+	}
+
+	public void setSelectionMode(String mode) {
+		m_view.setSelectionMode(mode);
+	}
+
+	public String selectionMode() {
+		return m_view.selectionMode();
+	}
+
+	public int[] zoomRect() {
+		return m_view.zoomRect();
+	}
+
+	public void setZoomRect(int[] rr) {
+		m_view.setZoomRect(rr);
+	}
+
+	public void zoomIn() {
+		int[] rr = m_view.selectedRect();
+		m_view.setZoomRect(rr);
+	}
+
+	public void zoomOut() {
+		int[] rr = new int[4];
+		rr[0] = rr[1] = rr[2] = rr[3] = -1;
+		m_view.setZoomRect(rr);
 	}
 
 	private void refresh_dims() {
@@ -223,12 +258,56 @@ public class ViewmdaWidget extends VBox {
 		update_status();
 	}
 
+	private double compute_selection_mean() {
+		int[] rr = m_view.selectedRect();
+		if (rr[0] < 0) {
+			return 0;
+		}
+		Mda X = m_view.array();
+		double sum = 0, count = 0;
+		boolean ellipse_mode = false;
+		if (m_view.selectionMode() == "ellipse") {
+			ellipse_mode = true;
+		}
+		double x0 = (rr[0] + rr[0] + rr[2] + 1) * 1.0 / 2;
+		double y0 = (rr[1] + rr[1] + rr[3] + 1) * 1.0 / 2;
+		double radx = (rr[2] + 1) * 1.0 / 2;
+		double rady = (rr[3] + 1) * 1.0 / 2;
+		for (int y = rr[1]; y <= rr[1] + rr[3]; y++) {
+			for (int x = rr[0]; x <= rr[0] + rr[2]; x++) {
+				boolean use = true;
+				if (ellipse_mode) {
+					double tmp = ((x - x0) * (x - x0)) / (radx * radx) + ((y - y0) * (y - y0)) / (rady * rady);
+					use = (tmp <= 1);
+				}
+				if (use) {
+					sum += X.value(x, y);
+					count++;
+				}
+			}
+		}
+		if (count == 0) {
+			return 0;
+		}
+		System.out.format("count = %g\n", count);
+		return sum / count;
+	}
+
+	private void compute_selected_rect_stats() {
+		m_stats_mean = compute_selection_mean();
+	}
+
+	private void on_selected_rect_changed() {
+		compute_selected_rect_stats();
+		update_status();
+	}
+
 	private String get_dim_string() {
 		String ret = "";
 		int numdims = m_array.dimCount();
 		for (int i = 0; i < numdims; i++) {
 			if (i > 0) {
-				ret += " x ";
+				ret += "x";
 			}
 			ret += String.format("%d", m_array.size(i));
 		}
@@ -241,7 +320,7 @@ public class ViewmdaWidget extends VBox {
 		int numdims = m_array.dimCount();
 		for (int i = 0; i < numdims; i++) {
 			if (i > 0) {
-				ret += ", ";
+				ret += ",";
 			}
 			ret += String.format("%d", m_current_index[i]);
 		}
@@ -250,7 +329,9 @@ public class ViewmdaWidget extends VBox {
 	}
 
 	private String format_val(double val) {
-		if (val==(int)val) return String.format("%d",(int)val);
+		if (val == (int) val) {
+			return String.format("%d", (int) val);
+		}
 		if (val > 100) {
 			return String.format("%d", (int) (val + 0.5));
 		} else {
@@ -264,18 +345,36 @@ public class ViewmdaWidget extends VBox {
 		return ret;
 	}
 
+	private String get_selected_rect_string() {
+		String ret = "";
+		int[] rr = m_view.selectedRect();
+		ret += String.format("%dx%d", rr[2] + 1, rr[3] + 1);
+		return ret;
+	}
+
+	private String get_selected_rect_stats_string() {
+		String ret = "";
+		return ret += String.format("mean = %s", format_val(m_stats_mean));
+	}
+
 	private String get_status_string() {
 		String str = "";
 		str += get_dim_string() + "; ";
 		int[] ind = m_view.currentIndex();
 		str += get_current_index_string() + "; ";
-		str += get_current_value_string() + "; ";
+		if (m_view.selectedRect()[0] >= 0) {
+			str += get_selected_rect_string() + "; ";
+			str += get_selected_rect_stats_string() + "; ";
+		} else {
+			str += get_current_value_string() + "; ";
+		}
 		return str;
 	}
 
 	private void update_status() {
 		String str = get_status_string();
 		m_status_label.setText(str);
+		update_status_label_height();
 	}
 
 	private void update_slice_slider() {
@@ -293,5 +392,32 @@ public class ViewmdaWidget extends VBox {
 		int[] ind = m_current_index.clone();
 		ind[d3] = i3;
 		setCurrentIndex(ind);
+	}
+
+	private void update_status_label_height() {
+		m_status_label.setWrapText(true);
+		int font_size = 11;
+		Font font = new Font(m_status_label.getFont().getFamily(), font_size);
+		double text_width = get_text_width(m_status_label.getText());
+		System.out.format("text width = %g, width=%g\n", text_width, this.getWidth());
+		int num_lines = 1;
+		if (text_width > 0) {
+			num_lines = max((int) (text_width * 1.0 / this.getWidth() + 0.99), 1);
+		}
+		System.out.format("num lines = %d\n", num_lines);
+		double factor = num_lines * 1.4;
+		m_status_label.setFont(font);
+		m_status_label.setMinHeight(font_size * factor);
+		m_status_label.setAlignment(Pos.TOP_LEFT);
+	}
+
+	private double get_text_width(String txt) {
+		Text text = new Text(txt);
+		new Scene(new Group(text));
+		// java 7 => 
+		//    text.snapshot(null, null);
+		// java 8 =>
+		text.applyCss();
+		return text.getLayoutBounds().getWidth();
 	}
 }

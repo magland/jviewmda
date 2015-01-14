@@ -93,11 +93,32 @@ public class Mda {
 		}
 		return m_size[dim];
 	}
-	public int N1() {return m_size[0];};
-	public int N2() {return m_size[1];};
-	public int N3() {return m_size[2];};
-	public int N4() {return m_size[3];};
-	public int N5() {return m_size[4];};
+
+	public int N1() {
+		return m_size[0];
+	}
+
+	;
+	public int N2() {
+		return m_size[1];
+	}
+
+	;
+	public int N3() {
+		return m_size[2];
+	}
+
+	;
+	public int N4() {
+		return m_size[3];
+	}
+
+	;
+	public int N5() {
+		return m_size[4];
+	}
+
+	;
 
 	public int dimCount() {
 		int ret = 2;
@@ -121,6 +142,7 @@ public class Mda {
 	public double value1(int i) {
 		return m_data_real[i];
 	}
+
 	public double value(int i1, int i2) {
 		final int[] tmp = {i1, i2};
 		return value(tmp);
@@ -167,8 +189,12 @@ public class Mda {
 		int ret = 0;
 		int prod = 1;
 		for (int i = 0; i < ind.length; i++) {
-			if (ind[i]>=m_size[i]) return 0;
-			if (ind[i]<0) return 0;
+			if (ind[i] >= m_size[i]) {
+				return 0;
+			}
+			if (ind[i] < 0) {
+				return 0;
+			}
 			ret += ind[i] * prod;
 			if (i < m_size.length) {
 				prod *= m_size[i];
@@ -266,7 +292,6 @@ public class Mda {
 			int num_bytes;
 			num_bytes = read_int(dis);
 			hold_num_dims = read_int(dis);
-			System.out.println(String.format("data_type=%d, num_bytes=%d, num_dims=%d", data_type, num_bytes, hold_num_dims));
 		} else {
 			data_type = MDA_TYPE_COMPLEX;
 		}
