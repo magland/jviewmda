@@ -9,6 +9,9 @@ import javafx.scene.layout.*;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.Slider;
+import javafx.scene.control.Tooltip;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
 import javafx.scene.text.Font;
 import javafx.scene.text.Text;
 
@@ -45,6 +48,9 @@ public class ViewmdaWidget extends VBox {
 	}
 
 	public ViewmdaWidget() {
+
+		CustomTooltipBehavior.setup(50, 10000, 200);
+
 		this.m_dim1_box = new ComboBox<>();
 		this.m_dim2_box = new ComboBox<>();
 		this.m_dim3_box = new ComboBox<>();
@@ -58,9 +64,14 @@ public class ViewmdaWidget extends VBox {
 		HBox top_controls = new HBox();
 		top_controls.getChildren().addAll(m_dim1_box, m_dim2_box, m_dim3_box);
 
+		HBox view_section = new HBox();
 		m_view = new MdaView2D();
+		BrightnessContrastControl bc_control = new BrightnessContrastControl();
+		m_view.setBrightnessContrastControl(bc_control);
+		view_section.getChildren().addAll(m_view, bc_control);
 
 		m_slice_slider = new Slider();
+		m_slice_slider.setTooltip(new Tooltip("Scroll through slices. Also use Shift+UP and Shift+DOWN."));
 
 		m_status_label = new Label();
 		m_status_label.setText("");
@@ -69,7 +80,7 @@ public class ViewmdaWidget extends VBox {
 		bottom_controls.getChildren().addAll(m_status_label);
 
 		VBox.setVgrow(m_view, Priority.ALWAYS);
-		this.getChildren().addAll(top_controls, m_view, m_slice_slider, bottom_controls);
+		this.getChildren().addAll(top_controls, view_section, m_slice_slider, bottom_controls);
 		//this.setTop(top_controls);
 		//this.setCenter(m_view);
 		//this.setBottom(bottom_controls);
@@ -82,14 +93,16 @@ public class ViewmdaWidget extends VBox {
 
 		refresh_dims();
 
-		m_view.onCurrentIndexChanged(evt -> on_current_index_changed());
-		m_view.onSelectedRectChanged(evt -> on_selected_rect_changed());
+		m_view.onCurrentIndexChanged(() -> on_current_index_changed());
+		m_view.onSelectedRectChanged(() -> on_selected_rect_changed());
 		m_slice_slider.valueProperty().addListener(ov -> on_slice_slider_changed());
 
 		this.widthProperty().addListener(ov -> {
 			update_status_label_height();
 		});
 		update_status_label_height();
+
+		this.setOnKeyPressed(evt -> on_key_pressed(evt));
 	}
 
 	public void setCurrentIndex(int[] ind) {
@@ -111,6 +124,8 @@ public class ViewmdaWidget extends VBox {
 		ind0[0] = m_current_index[d1];
 		ind0[1] = m_current_index[d2];
 		m_view.setCurrentIndex(ind0);
+		update_slice_slider_value();
+		update_status();
 	}
 
 	public int[] currentIndex() {
@@ -144,6 +159,7 @@ public class ViewmdaWidget extends VBox {
 		m_view.setZoomRect(rr);
 	}
 
+	/////////////////// PRIVATE /////////////////////////
 	private void refresh_dims() {
 		int dimcount = m_array.dimCount();
 
@@ -229,6 +245,22 @@ public class ViewmdaWidget extends VBox {
 		return ret;
 	}
 
+	private void on_key_pressed(KeyEvent evt) {
+		KeyCode code = evt.getCode();
+		int d3 = m_dim_choices[2] - 1;
+		if (evt.isShiftDown()) {
+			if (code.equals(KeyCode.UP)) {
+				int[] ind = currentIndex();
+				ind[d3]++;
+				setCurrentIndex(ind);
+			} else if (code.equals(KeyCode.DOWN)) {
+				int[] ind = currentIndex();
+				ind[d3]--;
+				setCurrentIndex(ind);
+			}
+		}
+	}
+
 	private void auto_set_window_levels() {
 		double maxval = 0;
 		int N = m_array.totalSize();
@@ -266,7 +298,7 @@ public class ViewmdaWidget extends VBox {
 		Mda X = m_view.array();
 		double sum = 0, count = 0;
 		boolean ellipse_mode = false;
-		if (m_view.selectionMode() == "ellipse") {
+		if (m_view.selectionMode().equals("ellipse")) {
 			ellipse_mode = true;
 		}
 		double x0 = (rr[0] + rr[0] + rr[2] + 1) * 1.0 / 2;
@@ -382,6 +414,11 @@ public class ViewmdaWidget extends VBox {
 		int N3 = m_array.size(d3) - 1;
 		m_slice_slider.setMin(0);
 		m_slice_slider.setMax(N3 - 1);
+		update_slice_slider_value();
+	}
+
+	private void update_slice_slider_value() {
+		int d3 = m_dim_choices[2] - 1;
 		m_slice_slider.setValue(m_current_index[d3]);
 	}
 
@@ -399,12 +436,10 @@ public class ViewmdaWidget extends VBox {
 		int font_size = 11;
 		Font font = new Font(m_status_label.getFont().getFamily(), font_size);
 		double text_width = get_text_width(m_status_label.getText());
-		System.out.format("text width = %g, width=%g\n", text_width, this.getWidth());
 		int num_lines = 1;
 		if (text_width > 0) {
 			num_lines = max((int) (text_width * 1.0 / this.getWidth() + 0.99), 1);
 		}
-		System.out.format("num lines = %d\n", num_lines);
 		double factor = num_lines * 1.4;
 		m_status_label.setFont(font);
 		m_status_label.setMinHeight(font_size * factor);

@@ -8,8 +8,6 @@ import java.util.Map;
 import java.util.Set;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
-import javafx.event.ActionEvent;
-import javafx.event.EventHandler;
 import javafx.util.Duration;
 
 /**
@@ -17,41 +15,35 @@ import javafx.util.Duration;
  * @author magland
  */
 public class CallbackHandler {
-	Map<String,HandlerList> m_handlers=new HashMap<String,HandlerList>();
+	Map<String,CallbackList> m_callbacks=new HashMap<>();
 	
 	public CallbackHandler() {
 	}
-	public void bind(String name,EventHandler<ActionEvent> handler) {
-		if (!m_handlers.containsKey(name)) {
-			m_handlers.put(name,new HandlerList());
+	public void bind(String name,Runnable callback) {
+		if (!m_callbacks.containsKey(name)) {
+			m_callbacks.put(name,new CallbackList());
 		}
-		m_handlers.get(name).list.add(handler);
+		m_callbacks.get(name).list.add(callback);
 	}
 	public void trigger(String name) {
-		trigger(name,new ActionEvent());
-	}
-	public void trigger(String name,ActionEvent evt) {
-		if (!m_handlers.containsKey(name)) return;
-		m_handlers.get(name).list.forEach(handler->{
-			handler.handle(evt);
+		if (!m_callbacks.containsKey(name)) return;
+		m_callbacks.get(name).list.forEach(callback->{
+			callback.run();
 		});
 	}
-	public void scheduleTrigger(String name,int timeout) {
-		scheduleTrigger(name,new ActionEvent(),timeout);
-	}
 	Set<String> m_scheduled_triggers=new HashSet<String>();
-	public void scheduleTrigger(String name,ActionEvent evt,int timeout) {
+	public void scheduleTrigger(String name,int timeout) {
 		if (m_scheduled_triggers.contains(name)) return;
 		m_scheduled_triggers.add(name);
 		new Timeline(new KeyFrame(Duration.millis(timeout),e -> {
 			m_scheduled_triggers.remove(name);
-			trigger(name,evt);
+			trigger(name);
 		})).play();
 		
 	}
 	
-	class HandlerList {
-		public List<EventHandler<ActionEvent>> list=new ArrayList<EventHandler<ActionEvent>>();
+	class CallbackList {
+		public List<Runnable> list=new ArrayList<>();
 	}	
 }
 

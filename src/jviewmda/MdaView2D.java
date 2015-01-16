@@ -3,6 +3,7 @@ package jviewmda;
 import static java.lang.Integer.max;
 import static java.lang.Integer.min;
 import static java.lang.Math.abs;
+import static java.lang.Math.exp;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.event.ActionEvent;
@@ -37,8 +38,11 @@ public class MdaView2D extends StackPane {
 	int m_image_height = 1;
 	double m_window_min = 0;
 	double m_window_max = 100;
+	double m_brightness = 0;
+	double m_contrast = 0;
 	String m_selection_mode = "rectangle";
 	CallbackHandler CH = new CallbackHandler();
+	BrightnessContrastControl m_brightness_contrast_control = null;
 
 	public void setArray(Mda X) {
 		m_array = X;
@@ -66,12 +70,12 @@ public class MdaView2D extends StackPane {
 		CH.scheduleTrigger("selected-rect-changed", 500);
 	}
 
-	public void onCurrentIndexChanged(EventHandler<ActionEvent> handler) {
-		CH.bind("current-index-changed", handler);
+	public void onCurrentIndexChanged(Runnable callback) {
+		CH.bind("current-index-changed", callback);
 	}
 
-	public void onSelectedRectChanged(EventHandler<ActionEvent> handler) {
-		CH.bind("selected-rect-changed", handler);
+	public void onSelectedRectChanged(Runnable callback) {
+		CH.bind("selected-rect-changed", callback);
 	}
 
 	public int[] currentIndex() {
@@ -86,6 +90,26 @@ public class MdaView2D extends StackPane {
 		m_window_min = min;
 		m_window_max = max;
 		schedule_refresh_image();
+	}
+
+	public void setBrightnessContrast(double brightness, double contrast) {
+		m_brightness = brightness;
+		m_contrast = contrast;
+		schedule_refresh_image(10);
+	}
+
+	public double brightness() {
+		return m_brightness;
+	}
+
+	public double contrast() {
+		return m_contrast;
+	}
+
+	public void setBrightnessContrastControl(BrightnessContrastControl control) {
+		m_brightness_contrast_control = control;
+		control.onChanged(() -> on_brightness_contrast_control_changed());
+		on_brightness_contrast_control_changed();
 	}
 
 	public void setSelectionMode(String mode) {
@@ -135,13 +159,19 @@ public class MdaView2D extends StackPane {
 	}
 	boolean m_refresh_image_scheduled = false;
 
+	private void on_brightness_contrast_control_changed() {
+		this.setBrightnessContrast(m_brightness_contrast_control.brightness(), m_brightness_contrast_control.contrast());
+	}
+
 	private void schedule_refresh_image() {
+		schedule_refresh_image(100);
+	}
+	private void schedule_refresh_image(int delay) {
 		if (m_refresh_image_scheduled) {
 			return;
 		}
-		int dur = 100;
 		m_refresh_image_scheduled = true;
-		new Timeline(new KeyFrame(Duration.millis(dur), e -> {
+		new Timeline(new KeyFrame(Duration.millis(delay), e -> {
 			m_refresh_image_scheduled = false;
 			do_refresh_image();
 		})).play();
@@ -234,8 +264,24 @@ public class MdaView2D extends StackPane {
 	}
 
 	private Color get_color_at(int x, int y) {
+		double wmin0 = m_window_min;
+		double wmax0 = m_window_max;
+		double brightness=m_brightness; if (m_brightness>0) brightness*=2;
+		double sum = wmin0 + wmax0 - brightness * (wmax0 - wmin0);
+		double diff = (wmax0 - wmin0)*exp(-m_contrast*3);
+		double wmax = sum / 2 + diff / 2;
+		double wmin = sum / 2 - diff / 2;
 		double val = m_array.value(x, y);
-		double val0 = (val - m_window_min) / m_window_max;
+		double val0;
+		if (wmax > wmin) {
+			val0 = (val - wmin) / (wmax - wmin);
+		} else {
+			if (val > wmin) {
+				val0 = 1;
+			} else {
+				val0 = 0;
+			}
+		}
 		if (val0 > 1) {
 			val0 = 1;
 		}
@@ -260,9 +306,9 @@ public class MdaView2D extends StackPane {
 			ind1[1] = m_selected_rect[1] + m_selected_rect[3];
 			int[] pix0 = index2pixel(ind0[0] - 0.5, ind0[1] - 0.5);
 			int[] pix1 = index2pixel(ind1[0] + 0.5, ind1[1] + 0.5);
-			if (m_selection_mode == "rectangle") {
+			if (m_selection_mode.equals("rectangle")) {
 				gc.strokeRect(pix0[0], pix0[1], pix1[0] - pix0[0], pix1[1] - pix0[1]);
-			} else if (m_selection_mode == "ellipse") {
+			} else if (m_selection_mode.equals("ellipse")) {
 				gc.strokeOval(pix0[0], pix0[1], pix1[0] - pix0[0], pix1[1] - pix0[1]);
 			}
 			return;
@@ -313,33 +359,36 @@ public class MdaView2D extends StackPane {
 	private void on_key_pressed(KeyEvent evt) {
 		int[] ind = m_current_index.clone();
 		KeyCode code = evt.getCode();
-		if (code == KeyCode.UP) {
-			ind[1]--;
-			if (ind[1] < 0) {
-				ind[1] = 0;
+		if (!evt.isShiftDown()) {
+			if (code == KeyCode.UP) {
+				ind[1]--;
+				if (ind[1] < 0) {
+					ind[1] = 0;
+				}
+				this.setCurrentIndex(ind);
+				evt.consume();
+			} else if (code == KeyCode.DOWN) {
+				ind[1]++;
+				if (ind[1] >= m_array.N2()) {
+					ind[1] = m_array.N2() - 1;
+				}
+				this.setCurrentIndex(ind);
+				evt.consume();
+			} else if (code == KeyCode.LEFT) {
+				ind[0]--;
+				if (ind[0] < 0) {
+					ind[0] = 0;
+				}
+				this.setCurrentIndex(ind);
+				evt.consume();
+			} else if (code == KeyCode.RIGHT) {
+				ind[0]++;
+				if (ind[0] >= m_array.N1()) {
+					ind[0] = m_array.N1() - 1;
+				}
+				this.setCurrentIndex(ind);
+				evt.consume();
 			}
-			this.setCurrentIndex(ind);
-		} else if (code == KeyCode.DOWN) {
-			ind[1]++;
-			if (ind[1] >= m_array.N2()) {
-				ind[1] = m_array.N2() - 1;
-			}
-			this.setCurrentIndex(ind);
-		} else if (code == KeyCode.LEFT) {
-			ind[0]--;
-			if (ind[0] < 0) {
-				ind[0] = 0;
-			}
-			this.setCurrentIndex(ind);
-		} else if (code == KeyCode.RIGHT) {
-			ind[0]++;
-			if (ind[0] >= m_array.N1()) {
-				ind[0] = m_array.N1() - 1;
-			}
-			this.setCurrentIndex(ind);
-		} else {
-			return; //don't consume
 		}
-		evt.consume();
 	}
 }
