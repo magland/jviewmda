@@ -4,10 +4,14 @@ Write .nii/.mda files
 Handle complex data
 Fourier transforms
 Selection mode polygon
-customCanvas(name) in MdaView2D and ViewmdaWidget
-arrows in LesionProbe
+Zoom capability in LesionProbe (perhaps a menu? -- or do we integrate it into the ViewmdaWidget?)
+Menu option to hide cursor in JViewMda
+LesionProbe: read the .csv files etc.
+git repository for LesionProbe
 
 ==== Done ====
+customCanvas(name) in MdaView2D and ViewmdaWidget
+arrows in LesionProbe
 Problem with focus switching between windows in LesionProbe
 Hide cursor
 Faster library for loading .nii files

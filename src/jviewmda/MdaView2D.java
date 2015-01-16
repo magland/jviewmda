@@ -346,10 +346,6 @@ public class MdaView2D extends StackPane {
 		GraphicsContext gc = m_cursor_canvas.getGraphicsContext2D();
 		gc.clearRect(0, 0, getWidth(), getHeight());
 		
-		if (!m_cursor_visible) {
-			return;
-		}
-		
 		gc.setStroke(Color.RED);
 		gc.setLineWidth(3);
 		
@@ -377,11 +373,11 @@ public class MdaView2D extends StackPane {
 			return;
 		}
 		
-		int[] pix = index2pixel(m_current_index[0], m_current_index[1]);
-		gc.strokeLine(m_offset_x, pix[1], m_offset_x + m_image_width, pix[1]);
-		gc.strokeLine(pix[0], m_offset_y, pix[0], m_offset_y + m_image_height);
-//		gc.setLineWidth(5);
-//		gc.strokeLine(getWidth()-10,getHeight()-10,10,10);
+		if (m_cursor_visible) {
+			int[] pix = index2pixel(m_current_index[0], m_current_index[1]);
+			gc.strokeLine(m_offset_x, pix[1], m_offset_x + m_image_width, pix[1]);
+			gc.strokeLine(pix[0], m_offset_y, pix[0], m_offset_y + m_image_height);
+		}
 	}
 	double[] m_anchor_point = new double[2];
 	
