@@ -4,6 +4,10 @@ import static java.lang.Integer.max;
 import static java.lang.Integer.min;
 import static java.lang.Math.abs;
 import static java.lang.Math.exp;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.event.ActionEvent;
@@ -23,7 +27,7 @@ import javafx.util.Duration;
  * @author magland
  */
 public class MdaView2D extends StackPane {
-
+	
 	private ExpandingCanvas m_image_canvas;
 	private ExpandingCanvas m_cursor_canvas;
 	private Mda m_array;
@@ -43,17 +47,20 @@ public class MdaView2D extends StackPane {
 	String m_selection_mode = "rectangle";
 	CallbackHandler CH = new CallbackHandler();
 	BrightnessContrastControl m_brightness_contrast_control = null;
-
+	boolean m_cursor_visible = true;
+	List<ExpandingCanvas> m_custom_canvases = new ArrayList<>();
+	Map<String, ExpandingCanvas> m_custom_canvas_lookups = new HashMap<>();
+	
 	public void setArray(Mda X) {
 		m_array = X;
 		schedule_refresh_image();
 		refresh_cursor();
 	}
-
+	
 	public Mda array() {
 		return m_array;
 	}
-
+	
 	public void setCurrentIndex(int[] ind) {
 		if ((m_current_index[0] == ind[0]) && (m_current_index[1] == ind[1])) {
 			return;
@@ -63,74 +70,93 @@ public class MdaView2D extends StackPane {
 		refresh_cursor();
 		CH.scheduleTrigger("current-index-changed", 100);
 	}
-
+	
 	public void setSelectedRect(int[] rr) {
 		m_selected_rect = rr.clone();
 		refresh_cursor();
 		CH.scheduleTrigger("selected-rect-changed", 500);
 	}
-
+	
 	public void onCurrentIndexChanged(Runnable callback) {
 		CH.bind("current-index-changed", callback);
 	}
-
+	
 	public void onSelectedRectChanged(Runnable callback) {
 		CH.bind("selected-rect-changed", callback);
 	}
-
+	
 	public int[] currentIndex() {
 		return m_current_index.clone();
 	}
-
+	
 	public int[] selectedRect() {
 		return m_selected_rect.clone();
 	}
-
+	
 	public void setWindowLevels(double min, double max) {
 		m_window_min = min;
 		m_window_max = max;
 		schedule_refresh_image();
 	}
-
+	
 	public void setBrightnessContrast(double brightness, double contrast) {
 		m_brightness = brightness;
 		m_contrast = contrast;
 		schedule_refresh_image(10);
 	}
-
+	
 	public double brightness() {
 		return m_brightness;
 	}
-
+	
 	public double contrast() {
 		return m_contrast;
 	}
-
+	
 	public void setBrightnessContrastControl(BrightnessContrastControl control) {
 		m_brightness_contrast_control = control;
 		control.onChanged(() -> on_brightness_contrast_control_changed());
 		on_brightness_contrast_control_changed();
 	}
-
+	
 	public void setSelectionMode(String mode) {
 		m_selection_mode = mode;
 		CH.scheduleTrigger("selected-rect-changed", 500);
 		refresh_cursor();
 	}
-
+	
 	public String selectionMode() {
 		return m_selection_mode;
 	}
-
+	
 	public void setZoomRect(int[] rr) {
 		m_zoom_rect = rr.clone();
 		schedule_refresh_image();
 	}
-
+	
 	public int[] zoomRect() {
 		return m_zoom_rect.clone();
 	}
-
+	
+	public void setCursorVisible(boolean val) {
+		m_cursor_visible = val;
+		refresh_cursor();
+	}
+	
+	public ExpandingCanvas customCanvas(String name) {
+		if (!m_custom_canvas_lookups.containsKey(name)) {
+			ExpandingCanvas CC = new ExpandingCanvas();
+			m_custom_canvas_lookups.put(name, CC);
+			m_custom_canvases.add(CC);
+			getChildren().add(CC);
+		}
+		return m_custom_canvas_lookups.get(name);
+	}
+	
+	public void onImageRefreshed(Runnable callback) {
+		CH.bind("image-refreshed", callback);
+	}
+	
 	public MdaView2D() {
 		m_current_index[0] = -1;
 		m_current_index[1] = -1;
@@ -146,9 +172,9 @@ public class MdaView2D extends StackPane {
 		m_cursor_canvas = new ExpandingCanvas();
 		getChildren().add(m_image_canvas);
 		getChildren().add(m_cursor_canvas);
-		m_image_canvas.setOnRefresh(evt -> schedule_refresh_image());
-		m_cursor_canvas.setOnRefresh(evt -> refresh_cursor());
-
+		m_image_canvas.setOnRefresh(() -> schedule_refresh_image());
+		m_cursor_canvas.setOnRefresh(() -> refresh_cursor());
+		
 		this.setOnMousePressed(evt -> {
 			on_mouse_pressed(evt, evt.getX(), evt.getY());
 		});
@@ -157,16 +183,35 @@ public class MdaView2D extends StackPane {
 		});
 		this.setOnKeyPressed(evt -> on_key_pressed(evt));
 	}
-	boolean m_refresh_image_scheduled = false;
+	
+	public int[] pixelToIndex(double x, double y) {
+		return pixel2index(x, y);
+	}
+	
+	public int[] indexToPixel(double x, double y) {
+		return index2pixel(x, y);
+	}
+	
+	public int[] imageRect() {
+		int[] ret = new int[4];
+		ret[0] = m_offset_x;
+		ret[1] = m_offset_y;
+		ret[2] = m_image_width;
+		ret[3] = m_image_height;
+		return ret;
+	}
 
+	////////////////// PRIVATE /////////////////////////////////////////
 	private void on_brightness_contrast_control_changed() {
 		this.setBrightnessContrast(m_brightness_contrast_control.brightness(), m_brightness_contrast_control.contrast());
 	}
-
+	
 	private void schedule_refresh_image() {
 		schedule_refresh_image(100);
 	}
-
+	
+	boolean m_refresh_image_scheduled = false;
+	
 	private void schedule_refresh_image(int delay) {
 		if (m_refresh_image_scheduled) {
 			return;
@@ -177,13 +222,13 @@ public class MdaView2D extends StackPane {
 			do_refresh_image();
 		})).play();
 	}
-
+	
 	private void do_refresh_image() {
 		GraphicsContext gc = m_image_canvas.getGraphicsContext2D();
 		gc.clearRect(0, 0, getWidth(), getHeight());
-
+		
 		int margin = 5;
-
+		
 		double scale_factor = 1;
 		int N1 = m_array.N1();
 		int N2 = m_array.N2();
@@ -202,20 +247,20 @@ public class MdaView2D extends StackPane {
 		m_scale_y = scale_factor;
 		m_offset_x = (int) (margin + (W0 - N1 * m_scale_x) / 2);
 		m_offset_y = (int) (margin + (H0 - N2 * m_scale_y) / 2);
-
+		
 		int M1 = (int) (N1 * m_scale_x);
 		int M2 = (int) (N2 * m_scale_y);
-
+		
 		if (M1 < 1) {
 			return;
 		}
 		if (M2 < 1) {
 			return;
 		}
-
+		
 		m_image_width = M1;
 		m_image_height = M2;
-
+		
 		WritableImage img = new WritableImage(M1, M2);
 		PixelWriter W = img.getPixelWriter();
 		int[] tmp = new int[2];
@@ -227,10 +272,12 @@ public class MdaView2D extends StackPane {
 			}
 		}
 		gc.drawImage(img, m_offset_x, m_offset_y);
-
+		
 		refresh_cursor();
+		
+		CH.trigger("image-refreshed");
 	}
-
+	
 	private int[] pixel2index(double x, double y) {
 		int tmp[] = new int[2];
 		int N1 = m_array.N1();
@@ -242,7 +289,7 @@ public class MdaView2D extends StackPane {
 			x0 = m_zoom_rect[0];
 			y0 = m_zoom_rect[1];
 		}
-
+		
 		tmp[0] = x0 + (int) ((x - m_offset_x) / m_scale_x);
 		tmp[1] = y0 + (int) ((y - m_offset_y) / m_scale_y);
 		if ((tmp[0] < x0) || (tmp[1] < y0) || (tmp[0] >= x0 + N1) || (tmp[1] >= y0 + N2)) {
@@ -251,7 +298,7 @@ public class MdaView2D extends StackPane {
 		}
 		return tmp;
 	}
-
+	
 	private int[] index2pixel(double x, double y) {
 		int tmp[] = new int[2];
 		int x0 = 0, y0 = 0;
@@ -263,7 +310,7 @@ public class MdaView2D extends StackPane {
 		tmp[1] = (int) (m_offset_y + (y - y0 + 0.5) * m_scale_y);
 		return tmp;
 	}
-
+	
 	private Color get_color_at(int x, int y) {
 		double wmin0 = m_window_min;
 		double wmax0 = m_window_max;
@@ -294,13 +341,18 @@ public class MdaView2D extends StackPane {
 		}
 		return new Color((float) val0, (float) val0, (float) val0, 1);
 	}
-
+	
 	private void refresh_cursor() {
 		GraphicsContext gc = m_cursor_canvas.getGraphicsContext2D();
 		gc.clearRect(0, 0, getWidth(), getHeight());
+		
+		if (!m_cursor_visible) {
+			return;
+		}
+		
 		gc.setStroke(Color.RED);
 		gc.setLineWidth(3);
-
+		
 		if (m_selected_rect[0] >= 0) {
 			int[] ind0 = new int[2];
 			ind0[0] = m_selected_rect[0];
@@ -317,14 +369,14 @@ public class MdaView2D extends StackPane {
 			}
 			return;
 		}
-
+		
 		if (m_current_index[0] < 0) {
 			return;
 		}
 		if (m_current_index[1] < 0) {
 			return;
 		}
-
+		
 		int[] pix = index2pixel(m_current_index[0], m_current_index[1]);
 		gc.strokeLine(m_offset_x, pix[1], m_offset_x + m_image_width, pix[1]);
 		gc.strokeLine(pix[0], m_offset_y, pix[0], m_offset_y + m_image_height);
@@ -332,7 +384,7 @@ public class MdaView2D extends StackPane {
 //		gc.strokeLine(getWidth()-10,getHeight()-10,10,10);
 	}
 	double[] m_anchor_point = new double[2];
-
+	
 	private void on_mouse_pressed(MouseEvent evt, double x, double y) {
 		int[] ind = pixel2index(x, y);
 		this.setCurrentIndex(ind);
@@ -344,7 +396,7 @@ public class MdaView2D extends StackPane {
 		rr[0] = rr[1] = rr[2] = rr[3] = -1;
 		this.setSelectedRect(rr); //includes refresh_cursor
 	}
-
+	
 	private void on_mouse_dragged(MouseEvent evt, double x, double y) {
 		if (m_anchor_point[0] >= 0) {
 			if ((abs(m_anchor_point[0] - x) > 2) && (abs(m_anchor_point[1] - y) > 2)) {
@@ -359,7 +411,7 @@ public class MdaView2D extends StackPane {
 			}
 		}
 	}
-
+	
 	private void on_key_pressed(KeyEvent evt) {
 		int[] ind = m_current_index.clone();
 		KeyCode code = evt.getCode();

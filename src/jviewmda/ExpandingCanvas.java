@@ -10,10 +10,10 @@ import javafx.scene.layout.Pane;
  *
  * @author magland
  */
-class ExpandingCanvas extends Pane {
+public class ExpandingCanvas extends Pane {
 
 	private Canvas m_canvas;
-	private EventHandler<Event> m_on_refresh;
+	private Runnable m_on_refresh = null;
 
 	public Canvas canvas() {
 		return m_canvas;
@@ -30,8 +30,8 @@ class ExpandingCanvas extends Pane {
 		setPrefHeight(Integer.MAX_VALUE);
 	}
 
-	public void setOnRefresh(EventHandler<Event> X) {
-		m_on_refresh = X;
+	public void setOnRefresh(Runnable callback) {
+		m_on_refresh = callback;
 	}
 
 	@Override
@@ -52,7 +52,9 @@ class ExpandingCanvas extends Pane {
 		if (w != m_canvas.getWidth() || h != m_canvas.getHeight()) {
 			m_canvas.setWidth(w);
 			m_canvas.setHeight(h);
-			m_on_refresh.handle(new Event(Event.ANY));
+			if (m_on_refresh != null) {
+				m_on_refresh.run();
+			}
 		}
 	}
 }

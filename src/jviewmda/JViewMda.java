@@ -15,6 +15,7 @@ import java.util.prefs.Preferences;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.scene.Scene;
+import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.CheckMenuItem;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
@@ -24,6 +25,8 @@ import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
 import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
+import javafx.scene.paint.Paint;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import org.apache.commons.io.FilenameUtils;
@@ -54,7 +57,8 @@ public class JViewMda extends Application {
 		}
 		// FOR DEBUGING PURPOSES
 		if (array_path.length() == 0) {
-			String debug_path = "/home/magland/wisdm/www/wisdmfileserver/files/fetalmri/sessions/SESSION1/crops/FNP001A-coronal.crop.mda";
+			//String debug_path = "/home/magland/wisdm/www/wisdmfileserver/files/fetalmri/sessions/SESSION1/crops/FNP001A-coronal.crop.mda";
+			String debug_path = "/home/magland/data/LesionProbe/Images/ID001_FLAIR.nii";
 			if ((new File(debug_path)).exists()) {
 				array_path = debug_path;
 			}
@@ -93,6 +97,39 @@ public class JViewMda extends Application {
 		item.setAccelerator(new KeyCodeCombination(KeyCode.Z, KeyCombination.CONTROL_DOWN, KeyCombination.SHIFT_DOWN));
 		item.setOnAction(e -> on_zoom_out());
 		menu.getItems().add(item);
+		menu.getItems().add(new SeparatorMenuItem()); /////////////////////////////////////////////
+		{
+			CheckMenuItem item0 = new CheckMenuItem("Top Controls");
+			item0.setSelected(true);
+			item0.setOnAction(e -> {
+				m_widget.setTopControlsVisible(item0.isSelected());
+			});
+			menu.getItems().add(item0);
+		}
+		{
+			CheckMenuItem item0 = new CheckMenuItem("Bottom Controls");
+			item0.setSelected(true);
+			item0.setOnAction(e -> {
+				m_widget.setBottomControlsVisible(item0.isSelected());
+			});
+			menu.getItems().add(item0);
+		}
+		{
+			CheckMenuItem item0 = new CheckMenuItem("Brightness/Contrast");
+			item0.setSelected(true);
+			item0.setOnAction(e -> {
+				m_widget.setBrightnessContrastVisible(item0.isSelected());
+			});
+			menu.getItems().add(item0);
+		}
+		{
+			CheckMenuItem item0 = new CheckMenuItem("Slice Slider");
+			item0.setSelected(true);
+			item0.setOnAction(e -> {
+				m_widget.setSliceSliderVisible(item0.isSelected());
+			});
+			menu.getItems().add(item0);
+		}
 
 		//selection menu
 		menu = new Menu("Selection");

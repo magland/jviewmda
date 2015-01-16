@@ -184,6 +184,10 @@ public class Mda {
 		return m_data_real[ii] = val;
 	}
 
+	public void setValue1(double val, int i) {
+		m_data_real[i] = val;
+	}
+
 	// get_index
 	public int get_index(int[] ind) {
 		int ret = 0;

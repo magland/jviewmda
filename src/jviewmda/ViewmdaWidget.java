@@ -32,6 +32,11 @@ public class ViewmdaWidget extends VBox {
 	private Label m_status_label;
 	private Slider m_slice_slider;
 	private double m_stats_mean = 0;
+	HBox m_top_controls;
+	HBox m_bottom_controls;
+	HBox m_view_section;
+	BrightnessContrastControl m_bc_control;
+	CallbackHandler CH = new CallbackHandler();
 
 	public void setArray(Mda X) {
 		m_array = X;
@@ -59,16 +64,19 @@ public class ViewmdaWidget extends VBox {
 		m_dim_boxes.add(m_dim2_box);
 		m_dim_boxes.add(m_dim3_box);
 
-		setStyle("-fx-background-color: lightblue;");
+		setStyle("-fx-background-color: lightgray;");
 
 		HBox top_controls = new HBox();
 		top_controls.getChildren().addAll(m_dim1_box, m_dim2_box, m_dim3_box);
+		m_top_controls = top_controls;
 
 		HBox view_section = new HBox();
 		m_view = new MdaView2D();
 		BrightnessContrastControl bc_control = new BrightnessContrastControl();
 		m_view.setBrightnessContrastControl(bc_control);
 		view_section.getChildren().addAll(m_view, bc_control);
+		m_bc_control = bc_control;
+		m_view_section = view_section;
 
 		m_slice_slider = new Slider();
 		m_slice_slider.setTooltip(new Tooltip("Scroll through slices. Also use Shift+UP and Shift+DOWN."));
@@ -78,6 +86,7 @@ public class ViewmdaWidget extends VBox {
 
 		HBox bottom_controls = new HBox();
 		bottom_controls.getChildren().addAll(m_status_label);
+		m_bottom_controls = bottom_controls;
 
 		VBox.setVgrow(m_view, Priority.ALWAYS);
 		this.getChildren().addAll(top_controls, view_section, m_slice_slider, bottom_controls);
@@ -126,6 +135,10 @@ public class ViewmdaWidget extends VBox {
 		m_view.setCurrentIndex(ind0);
 		update_slice_slider_value();
 		update_status();
+
+		if (!only_inplane_changed) {
+			CH.trigger("current-slice-changed");
+		}
 	}
 
 	public int[] currentIndex() {
@@ -157,6 +170,98 @@ public class ViewmdaWidget extends VBox {
 		int[] rr = new int[4];
 		rr[0] = rr[1] = rr[2] = rr[3] = -1;
 		m_view.setZoomRect(rr);
+	}
+
+	public void setTopControlsVisible(boolean val) {
+		if (this.topControlsVisible() == val) {
+			return;
+		}
+		if (val) {
+			this.getChildren().add(0, m_top_controls);
+		} else {
+			this.getChildren().remove(m_top_controls);
+		}
+	}
+
+	public boolean topControlsVisible() {
+		return this.getChildren().contains(m_top_controls);
+	}
+
+	public void setBottomControlsVisible(boolean val) {
+		if (this.bottomControlsVisible() == val) {
+			return;
+		}
+		if (val) {
+			this.getChildren().add(m_bottom_controls);
+		} else {
+			this.getChildren().remove(m_bottom_controls);
+		}
+	}
+
+	public boolean bottomControlsVisible() {
+		return this.getChildren().contains(m_bottom_controls);
+	}
+
+	public void setBrightnessContrastVisible(boolean val) {
+		if (this.brightnessContrastVisible() == val) {
+			return;
+		}
+		if (val) {
+			m_view_section.getChildren().add(m_bc_control);
+		} else {
+			m_view_section.getChildren().remove(m_bc_control);
+		}
+	}
+
+	public boolean brightnessContrastVisible() {
+		return m_view_section.getChildren().contains(m_bc_control);
+	}
+
+	public void setSliceSliderVisible(boolean val) {
+		if (this.sliceSliderVisible() == val) {
+			return;
+		}
+		if (val) {
+			if (getChildren().contains(m_bottom_controls)) {
+				getChildren().add(getChildren().size() - 1, m_slice_slider);
+			} else {
+				getChildren().add(m_slice_slider);
+			}
+		} else {
+			getChildren().remove(m_slice_slider);
+		}
+	}
+
+	public boolean sliceSliderVisible() {
+		return getChildren().contains(m_slice_slider);
+	}
+
+	public void setCursorVisible(boolean val) {
+		m_view.setCursorVisible(val);
+	}
+
+	public void onCurrentSliceChanged(Runnable callback) {
+		CH.bind("current-slice-changed", callback);
+	}
+
+	public ExpandingCanvas customCanvas(String name) {
+		return m_view.customCanvas(name);
+	}
+
+	public int[] indexToPixel(double x, double y) {
+		return m_view.indexToPixel(x, y);
+	}
+
+	public int[] pixelToIndex(double x, double y) {
+		return m_view.pixelToIndex(x, y);
+	}
+
+	public int[] imageRect() {
+		return m_view.imageRect();
+	}
+
+	public void onImageRefreshed(Runnable callback) {
+		m_view.onImageRefreshed(callback);
 	}
 
 	/////////////////// PRIVATE /////////////////////////
@@ -253,10 +358,12 @@ public class ViewmdaWidget extends VBox {
 				int[] ind = currentIndex();
 				ind[d3]++;
 				setCurrentIndex(ind);
+				evt.consume();
 			} else if (code.equals(KeyCode.DOWN)) {
 				int[] ind = currentIndex();
 				ind[d3]--;
 				setCurrentIndex(ind);
+				evt.consume();
 			}
 		}
 	}

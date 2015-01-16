@@ -1,12 +1,17 @@
 /*
 
-Brightness/contrast
 Write .nii/.mda files
 Handle complex data
 Fourier transforms
 Selection mode polygon
+customCanvas(name) in MdaView2D and ViewmdaWidget
+arrows in LesionProbe
 
 ==== Done ====
+Problem with focus switching between windows in LesionProbe
+Hide cursor
+Faster library for loading .nii files
+Brightness/contrast
 Don't start at slice 0
 Shift up/down to scroll through slices
 On changing slice, update status
