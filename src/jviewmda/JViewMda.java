@@ -43,20 +43,20 @@ public class JViewMda extends Application {
 	private Map<String, CheckMenuItem> m_selection_mode_items;
 
 	@Override
-	public void start(Stage primaryStage) {	
+	public void start(Stage primaryStage) {
 		m_stage = primaryStage;
-		
-		String array_path="";
-		Parameters params=getParameters();
-		List<String> unnamed_params=params.getUnnamed();
-		if (unnamed_params.size()>0) {
-			array_path=unnamed_params.get(0);
+
+		String array_path = "";
+		Parameters params = getParameters();
+		List<String> unnamed_params = params.getUnnamed();
+		if (unnamed_params.size() > 0) {
+			array_path = unnamed_params.get(0);
 		}
 		// FOR DEBUGING PURPOSES
-		if (array_path.length()==0) {
-			String debug_path="/home/magland/wisdm/www/wisdmfileserver/files/fetalmri/sessions/SESSION1/crops/FNP001A-coronal.crop.mda";
+		if (array_path.length() == 0) {
+			String debug_path = "/home/magland/wisdm/www/wisdmfileserver/files/fetalmri/sessions/SESSION1/crops/FNP001A-coronal.crop.mda";
 			if ((new File(debug_path)).exists()) {
-				array_path=debug_path;
+				array_path = debug_path;
 			}
 		}
 
@@ -120,8 +120,8 @@ public class JViewMda extends Application {
 		primaryStage.setTitle("JViewMda");
 		primaryStage.setScene(scene);
 		primaryStage.show();
-		
-		if (array_path.length()>0) {
+
+		if (array_path.length() > 0) {
 			open_file(array_path);
 		}
 
@@ -148,24 +148,23 @@ public class JViewMda extends Application {
 		}
 		m_prefs.put("open_file_directory", file0.getParentFile().getAbsolutePath());
 		String path0 = file0.getAbsolutePath();
-		
+
 		open_file(path0);
 	}
+
 	private void open_file(String path0) {
-		String suf=FilenameUtils.getExtension(path0);
+		String suf = FilenameUtils.getExtension(path0);
 		if (suf.equals("mda")) {
 			if (!m_array.read(path0)) {
 				System.err.println("Problem reading mda file.");
 				return;
 			}
-		}
-		else if ((suf.equals("nii"))||(suf.equals("gz"))) {
-			JNifti X=new JNifti();
+		} else if ((suf.equals("nii")) || (suf.equals("gz"))) {
+			JNifti X = new JNifti();
 			try {
 				X.read(path0);
-				m_array=X.array();
-			}
-			catch(IOException ee) {
+				m_array = X.array();
+			} catch (IOException ee) {
 				System.err.println("Unable to read nifti file.");
 				return;
 			}
@@ -203,9 +202,8 @@ public class JViewMda extends Application {
 		try {
 			String str = FF.getName() + ": " + FF.getCanonicalPath();
 			m_stage.setTitle(str);
-		}
-		catch(IOException ee) {
-			
+		} catch (IOException ee) {
+
 		}
 	}
 

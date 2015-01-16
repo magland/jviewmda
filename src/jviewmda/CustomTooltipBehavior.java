@@ -7,10 +7,11 @@ import javafx.util.Duration;
 
 /**
  *
- * @author magland
- * Taken from this: http://www.coderanch.com/t/622070/JavaFX/java/control-Tooltip-visible-time-duration
+ * @author magland Taken from this:
+ * http://www.coderanch.com/t/622070/JavaFX/java/control-Tooltip-visible-time-duration
  */
 public class CustomTooltipBehavior {
+
 	public static void setup(int openDelayInMillis, int visibleDurationInMillis, int closeDelayInMillis) {
 		try {
 

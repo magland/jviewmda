@@ -166,6 +166,7 @@ public class MdaView2D extends StackPane {
 	private void schedule_refresh_image() {
 		schedule_refresh_image(100);
 	}
+
 	private void schedule_refresh_image(int delay) {
 		if (m_refresh_image_scheduled) {
 			return;
@@ -266,9 +267,12 @@ public class MdaView2D extends StackPane {
 	private Color get_color_at(int x, int y) {
 		double wmin0 = m_window_min;
 		double wmax0 = m_window_max;
-		double brightness=m_brightness; if (m_brightness>0) brightness*=2;
+		double brightness = m_brightness;
+		if (m_brightness > 0) {
+			brightness *= 2;
+		}
 		double sum = wmin0 + wmax0 - brightness * (wmax0 - wmin0);
-		double diff = (wmax0 - wmin0)*exp(-m_contrast*3);
+		double diff = (wmax0 - wmin0) * exp(-m_contrast * 3);
 		double wmax = sum / 2 + diff / 2;
 		double wmin = sum / 2 - diff / 2;
 		double val = m_array.value(x, y);
